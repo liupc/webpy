@@ -1,0 +1,30 @@
+---
+- hosts: all
+  remote_user: root
+  tasks:
+    - name: create tmp dir
+      file:
+        path: "/tmp/{{ user_dir }}"
+        state: directory
+    - name: copy jdk package to remote
+      copy:
+        src: "{{ item }}"
+        dest: "/tmp/{{ user_dir }}"
+      with_items:
+        - "{{ package_path }}"
+        - "{{ jce_package_path }}"
+
+    - name: install jdk
+      shell: |
+        cd /tmp/{{ user_dir }}
+        package=jdk{{version}}
+        tar -xf $package.tar.gz
+        cp -r $package /opt/soft/
+        minor_ver=`echo {{ version }}|cut -d '.' -f2`
+        ln -snf /opt/soft/$package /opt/soft/jdk${minor_ver}
+
+        jce_package_path={{ jce_package_path }}
+        jce_package=${jce_package_path##*/}
+        unzip $jce_package
+        cp jce/*.jar /opt/soft/jdk${minor_ver}/jre/lib/security/
+

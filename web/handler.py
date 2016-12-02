@@ -2,5 +2,5 @@
 
 class Handler:
     """ interface for handler"""
-    def handle(self, *args):
+    def handle(self, *args, **kwargs):
         pass

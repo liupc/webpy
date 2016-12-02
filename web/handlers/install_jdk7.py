@@ -1,25 +1,69 @@
 #!/usr/bin/env python
+from __future__ import print_function
 from handler import Handler
+import os
 import subprocess
 
-name = "Jdk7Installer"
-class Jdk7Installer(Handler):
-    jdk_download_url = ""
-    private_key = ""
-    ansible_exec = ""
-    ansible_host = ""
-    ansible_playbook = ""
-    def handle(self, *args):
-        if not jdk_download_url:
-            raise Exception("jdk_download_url is not set")
-        if not private_key:
-            raise Exception("private_key is not set")
-        cmd = (Jdk7Installer.ansible_exec, "-i", Jdk7Installer.ansible_host \
-            Jdk7Installer.ansible_playbook)
-        child = subprocess.Popen(cmd, stderr=subprocess.PIPE)
-        err_msg = self.read_stderr(child.stderr)
-        if child.wait() != 0:
-            raise Exception("ansible execution error:%s" % err_msg)
 
-    def read_stderr(self, stderr):
-        return stderr.read()
+def format_env_args(kwargs):
+  if not type(kwargs) is dict:
+    raise TypeError("kwargs not dict type.")
+  buildargs = []
+  for k, v in kwargs.iteritems():
+    buildargs.append("-e")
+    buildargs.append("%s=%s" % (k, v))
+  return buildargs
+
+
+def start_host_name(name, path):
+  print("[%s]" % name, file=path)
+
+
+def append_host(host_ip, path):
+  print(host_ip, file=path)
+
+
+def write_host_file(host):
+  host_file = os.path.join(Jdk7Installer.user_dir, "install_jdk7.host")
+  f = open(host_file, 'w')
+  try:
+    start_host_name("all", f)
+    if isinstance(host, list):
+      for h in host:
+        append_host(h, f)
+    else:
+      append_host(host, f)
+  finally:
+    f.close()
+  return host_file
+
+name = "Jdk7Installer"
+
+
+class Jdk7Installer(Handler):
+  user_dir = ""
+  private_key = ""
+  ansible_exec = ""
+  ansible_host = ""
+  ansible_playbook = ""
+  ansible_envvars = {}
+
+  def handle(self, host, **kwargs):
+    if not Jdk7Installer.private_key:
+      raise Exception("private_key is not set")
+    host_name = write_host_file(host)
+    Jdk7Installer.ansible_host = host_name if host_name else Jdk7Installer.ansible_host
+    cmd = [Jdk7Installer.ansible_exec, "-i", Jdk7Installer.ansible_host, \
+           Jdk7Installer.ansible_playbook] + format_env_args(
+      Jdk7Installer.ansible_envvars)
+    print("ansible command: " + " ".join(cmd))
+    os.environ["ANSIBLE_HOST_KEY_CHECKING"] = "False"
+    child = subprocess.Popen(cmd, stderr=subprocess.PIPE)
+    err_msg = self.read_stderr(child.stderr)
+    if child.wait() != 0:
+      raise Exception("ansible execution error:%s" % err_msg)
+    else:
+      return "successful"
+
+  def read_stderr(self, stderr):
+    return stderr.read()
