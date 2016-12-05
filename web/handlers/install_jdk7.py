@@ -28,7 +28,7 @@ def write_host_file(host):
   f = open(host_file, 'w')
   try:
     start_host_name("all", f)
-    if isinstance(host, list):
+    if isinstance(host, tuple):
       for h in host:
         append_host(h, f)
     else:
@@ -36,6 +36,12 @@ def write_host_file(host):
   finally:
     f.close()
   return host_file
+
+def get_or_create_hostfile(host):
+	if not host:
+		return Jdk7Installer.ansible_host
+	else:
+		return write_host_file(host)
 
 name = "Jdk7Installer"
 
@@ -48,13 +54,17 @@ class Jdk7Installer(Handler):
   ansible_playbook = ""
   ansible_envvars = {}
 
-  def handle(self, host, **kwargs):
+  def handle(self, *host, **kwargs):
     if not Jdk7Installer.private_key:
       raise Exception("private_key is not set")
-    host_name = write_host_file(host)
-    Jdk7Installer.ansible_host = host_name if host_name else Jdk7Installer.ansible_host
-    cmd = [Jdk7Installer.ansible_exec, "-i", Jdk7Installer.ansible_host, \
-           Jdk7Installer.ansible_playbook] + format_env_args(
+    print(host)
+    print(kwargs)
+    Jdk7Installer.ansible_host = get_or_create_hostfile(host)
+    cmd = [Jdk7Installer.ansible_exec,  
+					"-i", Jdk7Installer.ansible_host, 
+           Jdk7Installer.ansible_playbook,  
+				   "--private-key", Jdk7Installer.private_key, 
+					 ] + format_env_args(
       Jdk7Installer.ansible_envvars)
     print("ansible command: " + " ".join(cmd))
     os.environ["ANSIBLE_HOST_KEY_CHECKING"] = "False"
